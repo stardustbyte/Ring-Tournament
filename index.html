@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ring Tournament</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Figtree:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --velvet: #17362e;
+    --velvet-deep: #0f2620;
+    --pad: #fbfaf7;
+    --brass: #c9a45c;
+    --ink: #10231e;
+    --mist: #b9c9c2;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: radial-gradient(120% 90% at 50% 0%, var(--velvet) 0%, var(--velvet-deep) 100%);
+    color: var(--pad);
+    font-family: Figtree, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  h1, h2 { font-family: Fraunces, Georgia, serif; font-weight: 400; margin: 0; line-height: 1.1; }
+  h1 { font-size: clamp(2.2rem, 6vw, 3.6rem); }
+  h2 { font-size: clamp(1.5rem, 4vw, 2.2rem); }
+  p { margin: 0; color: var(--mist); }
+  main { min-height: 100%; display: flex; flex-direction: column; padding: 20px; max-width: 1100px; margin: 0 auto; }
+  section { display: none; flex: 1; flex-direction: column; }
+  section.on { display: flex; }
+  button, .filebtn {
+    font: inherit; font-weight: 600; cursor: pointer;
+    border-radius: 999px; padding: 12px 24px;
+    border: 1px solid var(--brass); background: transparent; color: var(--pad);
+  }
+  button.primary { background: var(--brass); color: var(--ink); }
+  button:disabled { opacity: .4; cursor: default; }
+  button:focus-visible, .pad:focus-visible, .filebtn:focus-within, select:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+  /* Setup */
+  #setup { justify-content: center; gap: 24px; padding: 4vh 0; }
+  #setup p { max-width: 56ch; }
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; max-height: 34vh; overflow: auto; }
+  .thumbs img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; background: var(--pad); display: block; }
+  .filebtn input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  select { font: inherit; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--mist); background: var(--velvet-deep); color: var(--pad); }
+  label { color: var(--mist); }
+
+  /* Match */
+  #match { gap: 16px; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .arena { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; min-height: 0; }
+  .pad {
+    background: var(--pad); color: var(--ink); border: 0; border-radius: 20px; padding: 14px;
+    display: flex; flex-direction: column; gap: 10px; min-height: 0; font-weight: 400;
+    box-shadow: 0 18px 40px rgba(5, 18, 14, .55), inset 0 0 0 1px rgba(201, 164, 92, .5);
+    transition: transform .15s ease;
+  }
+  .pad:hover { transform: translateY(-4px); }
+  .pad:active { transform: scale(.98); }
+  .pad img { flex: 1; width: 100%; min-height: 0; height: 56vh; object-fit: contain; border-radius: 10px; }
+  .pad span { font-family: Fraunces, Georgia, serif; font-size: 1.1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hint { text-align: center; font-size: .9rem; }
+  @media (max-width: 640px) {
+    .arena { grid-template-columns: 1fr; gap: 12px; }
+    .pad img { height: 30vh; }
+    .hint { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .pad { transition: none; } }
+
+  /* Result */
+  #result { gap: 24px; align-items: center; text-align: center; padding: 3vh 0; }
+  .crown { background: var(--pad); border-radius: 24px; padding: 16px; max-width: 460px; width: 100%;
+    box-shadow: 0 0 0 3px var(--brass), 0 24px 60px rgba(5, 18, 14, .6); }
+  .crown img { width: 100%; max-height: 50vh; object-fit: contain; border-radius: 12px; display: block; }
+  ol.rank { list-style: none; padding: 0; margin: 0; width: 100%; max-width: 460px; text-align: left; }
+  ol.rank li { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(185, 201, 194, .25); }
+  ol.rank img { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; background: var(--pad); }
+  ol.rank b { width: 2ch; color: var(--brass); font-family: Fraunces, Georgia, serif; }
+</style>
+</head>
+<body>
+<main>
+
+  <section id="setup" class="on">
+    <h1>Ring Tournament</h1>
+    <p>Two rings at a time. Pick the one you like more. Rings drop out as they lose, until one is left.</p>
+    <p id="status">Looking for ring photos…</p>
+    <div class="thumbs" id="thumbs"></div>
+    <div class="row">
+      <label for="strikes">A ring is out after</label>
+      <select id="strikes">
+        <option value="2" selected>2 losses (fairer, takes longer)</option>
+        <option value="1">1 loss (quick)</option>
+      </select>
+    </div>
+    <div class="row">
+      <button class="primary" id="start" disabled>Start tournament</button>
+      <label class="filebtn">Add photos from this device
+        <input type="file" id="files" accept="image/*" multiple>
+      </label>
+    </div>
+  </section>
+
+  <section id="match">
+    <div class="top">
+      <h2>Which ring do you like more?</h2>
+      <p id="progress"></p>
+    </div>
+    <div class="arena">
+      <button class="pad" id="left"><img alt=""><span></span></button>
+      <button class="pad" id="right"><img alt=""><span></span></button>
+    </div>
+    <p class="hint">Click a ring, or use the ← and → keys.</p>
+    <div class="row">
+      <button id="undo">Undo last pick</button>
+      <button id="quit">Start over</button>
+    </div>
+  </section>
+
+  <section id="result">
+    <h1>The winning ring</h1>
+    <div class="crown"><img id="winImg" alt=""></div>
+    <h2 id="winName"></h2>
+    <ol class="rank" id="rank"></ol>
+    <div class="row">
+      <button class="primary" id="copy">Copy ranking</button>
+      <button id="again">Run it again</button>
+    </div>
+  </section>
+
+</main>
+<script>
+/* ---------- Settings ----------
+   Put ring photos in a folder called "rings" next to this file.
+   On GitHub Pages the app finds them by itself. If that ever fails,
+   list the file names here, e.g. ["ring-a.jpg", "ring-b.jpg"]. */
+const FOLDER = "rings";
+const RINGS = [];
+/* ------------------------------ */
+
+const $ = id => document.getElementById(id);
+const IMG = /\.(png|jpe?g|webp|gif|avif)$/i;
+const SAVE = "ring-tournament-v1";
+let rings = [];      // {name, src, local}
+let S = null;        // tournament state
+let history = [];
+
+const label = n => n.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const show = id => document.querySelectorAll("section").forEach(s => s.classList.toggle("on", s.id === id));
+
+async function discover() {
+  if (RINGS.length) return RINGS;
+  const h = location.hostname;
+  if (!h.endsWith(".github.io")) return [];
+  const owner = h.split(".")[0];
+  const seg = location.pathname.split("/").filter(Boolean)[0];
+  const repo = seg && !seg.endsWith(".html") ? seg : h;
+  const r = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${FOLDER}`);
+  if (!r.ok) throw new Error("no folder");
+  return (await r.json()).filter(f => f.type === "file" && IMG.test(f.name)).map(f => f.name);
+}
+
+function renderSetup() {
+  $("thumbs").innerHTML = "";
+  rings.forEach(r => { const i = new Image(); i.src = r.src; i.alt = label(r.name); $("thumbs").append(i); });
+  $("start").disabled = rings.length < 2;
+  $("status").textContent = rings.length >= 2
+    ? `${rings.length} rings ready.`
+    : rings.length === 1 ? "Only 1 ring so far. Add at least one more."
+    : `No photos found yet. Put them in a "${FOLDER}" folder in the repository, or add them from this device to try it out.`;
+}
+
+function save() {
+  if (rings.some(r => r.local)) return;
+  try { localStorage.setItem(SAVE, JSON.stringify({ names: rings.map(r => r.name), S, history })); } catch (e) {}
+}
+function clearSave() { try { localStorage.removeItem(SAVE); } catch (e) {} }
+
+function newRound() {
+  const alive = shuffle(rings.map((_, i) => i).filter(i => S.losses[i] < S.max));
+  S.queue = [];
+  for (let i = 0; i + 1 < alive.length; i += 2) S.queue.push([alive[i], alive[i + 1]]);
+  S.idx = 0; S.round++;
+}
+
+function start() {
+  S = { max: +$("strikes").value, losses: rings.map(() => 0), out: [], round: 0, queue: [], idx: 0 };
+  history = [];
+  newRound(); render();
+}
+
+function render() {
+  const alive = rings.filter((_, i) => S.losses[i] < S.max).length;
+  if (alive <= 1) return finish();
+  const [a, b] = S.queue[S.idx];
+  [["left", a], ["right", b]].forEach(([id, i]) => {
+    const el = $(id);
+    el.querySelector("img").src = rings[i].src;
+    el.querySelector("img").alt = label(rings[i].name);
+    el.querySelector("span").textContent = label(rings[i].name);
+  });
+  $("progress").textContent = `Round ${S.round}, match ${S.idx + 1} of ${S.queue.length}. ${alive} rings left.`;
+  $("undo").disabled = !history.length;
+  show("match"); save();
+}
+
+function pick(side) {
+  if (!S || !$("match").classList.contains("on")) return;
+  history.push(JSON.stringify(S));
+  const [a, b] = S.queue[S.idx];
+  const loser = side === 0 ? b : a;
+  if (++S.losses[loser] >= S.max) S.out.push(loser);
+  S.idx++;
+  if (S.idx >= S.queue.length && rings.filter((_, i) => S.losses[i] < S.max).length > 1) newRound();
+  render();
+}
+
+function ranking() {
+  const win = rings.findIndex((_, i) => S.losses[i] < S.max);
+  return [win, ...S.out.slice().reverse()];
+}
+
+function finish() {
+  const order = ranking();
+  const w = rings[order[0]];
+  $("winImg").src = w.src; $("winImg").alt = label(w.name);
+  $("winName").textContent = label(w.name);
+  $("rank").innerHTML = "";
+  order.slice(1).forEach((i, n) => {
+    const li = document.createElement("li");
+    const b = document.createElement("b"); b.textContent = n + 2;
+    const im = new Image(); im.src = rings[i].src; im.alt = "";
+    const s = document.createElement("span"); s.textContent = label(rings[i].name);
+    li.append(b, im, s); $("rank").append(li);
+  });
+  show("result"); save();
+}
+
+$("start").onclick = start;
+$("left").onclick = () => pick(0);
+$("right").onclick = () => pick(1);
+$("undo").onclick = () => { if (history.length) { S = JSON.parse(history.pop()); render(); } };
+$("quit").onclick = $("again").onclick = () => { S = null; history = []; clearSave(); renderSetup(); show("setup"); };
+$("copy").onclick = async () => {
+  const text = "Ring Tournament ranking\n" + ranking().map((i, n) => `${n + 1}. ${label(rings[i].name)}`).join("\n");
+  try { await navigator.clipboard.writeText(text); $("copy").textContent = "Copied"; }
+  catch (e) { prompt("Copy the ranking:", text); }
+};
+$("files").onchange = e => {
+  [...e.target.files].forEach(f => rings.push({ name: f.name, src: URL.createObjectURL(f), local: true }));
+  renderSetup();
+};
+addEventListener("keydown", e => {
+  if (e.key === "ArrowLeft") pick(0);
+  if (e.key === "ArrowRight") pick(1);
+});
+
+(async () => {
+  try {
+    const names = await discover();
+    rings = names.map(n => ({ name: n, src: FOLDER + "/" + encodeURIComponent(n) }));
+  } catch (e) { rings = []; }
+  renderSetup();
+  // Resume an unfinished tournament if the photos haven't changed
+  try {
+    const sv = JSON.parse(localStorage.getItem(SAVE));
+    if (sv && sv.S && rings.length && JSON.stringify(sv.names) === JSON.stringify(rings.map(r => r.name))) {
+      S = sv.S; history = sv.history || []; render();
+    }
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>
